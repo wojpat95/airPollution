@@ -26,49 +26,65 @@ var ctx = canvas.getContext("2d");
 // console.log(dataUnit);
 var mask;
 
-$.getJSON(`https://api.waqi.info/map/bounds/?latlng=-85.0,-180.0,85.0,180.0&token=${token}`, function (data) {
-    if (!data || (data.status != "ok")) {
-        console.log('DATA ERROR');
-        return;
-    }
+function get_air_data(density) {
+    return new Promise((resolve, reject) => {
+        lat_unit = 170 / density;
+        lon_unit = 360 / density;
+        let promises = [];
+        for (let i = 0; i < density; i++) {
+            for (let j = 0; j < density; j++) {
+                let tmp_lat = -85 + lat_unit * i;
+                let tmp_lon = -180 + lon_unit * j;
+                promises.push(
+                    new Promise((resolve,reject) => {
+                        $.getJSON(`https://api.waqi.info/map/bounds/?latlng=${-85 + lat_unit * i},${-180 + lon_unit * j},${-85 + lat_unit * (i + 1)},${-180 + lon_unit * (j + 1)}&token=${token}`,function (data) {
+                           resolve(data)
+                        }, function (err) {
+                            reject(err)
+                        })
+                    })
+                    );
+            }
+        }
+        Promise.all(promises).then(function(data) {
+            let result = [];
+            data.forEach(part => {
+                result.push(...part.data)
+            })
+            resolve(result);
 
-    //
+        }, function(err) {
+            reject(err);
+        });
+    })
+}
+
+
+get_air_data(2).then(data => {
     let vertices = [];
-    let filteredGeoData = filterTheSameGeoCoordinates(data.data);
+    let filteredGeoData = filterTheSameGeoCoordinates(data);
     filteredGeoData.forEach((station)=> {
-        console.log(station.aqi);
-        if(station.aqi != '-'){
+        // console.log(station.aqi);
+        if (station.aqi != '-') {
             vertices.push(new delaunay.Vertex(station.lon, station.lat, station.aqi));
         }
     });
-    let triangles = delaunay.triangulate(vertices);
-    console.log(triangles);
+    let expanded_vertices = get_3d_verticies(vertices);
+    let mask = prepare_3d_mask();
+    let triangles = delaunay.triangulate(expanded_vertices);
     let apiData = [];
-    mask = createMask();
-    console.log(data.data.length);
+    //mask = createMask();
+    // console.log(data.data.length);
     triangles.forEach(function (triangle) {
         fill_triangle(triangle.v0, triangle.v1, triangle.v2, mask, aqi_gradient);
-        // ctx.beginPath();
-        // ctx.moveTo(triangle.v0.x, triangle.v0.y);
-        // ctx.lineTo(triangle.v1.x, triangle.v1.y);
-        // ctx.lineTo(triangle.v2.x, triangle.v2.y);
-        // ctx.closePath();
-        // ctx.strokeStyle = "black";
-        // ctx.stroke();
-        //
-        // // Display circumcircles
-        // ctx.beginPath();
-        // ctx.arc( triangle.center.x, triangle.center.y, triangle.radius, 0, Math.PI*2, true );
-        // ctx.closePath();
-        // ctx.strokeStyle= "#ddd";
-        // ctx.stroke();
+
     });
     ctx.putImageData(mask.imageData, 0, 0);
     triangles.forEach(function (triangle) {
-        // ctx.fillStyle= "black";
-        // ctx.fillRect(triangle.v0.x,triangle.v0.y,2,2);
-        // ctx.fillRect(triangle.v1.x,triangle.v1.y,2,2);
-        // ctx.fillRect(triangle.v2.x,triangle.v2.y,2,2);
+    // //     // ctx.fillStyle= "black";
+    // //     // ctx.fillRect(triangle.v0.x,triangle.v0.y,2,2);
+    // //     // ctx.fillRect(triangle.v1.x,triangle.v1.y,2,2);
+    // //     // ctx.fillRect(triangle.v2.x,triangle.v2.y,2,2);
         ctx.beginPath();
         ctx.moveTo(triangle.v0.x, triangle.v0.y);
         ctx.lineTo(triangle.v1.x, triangle.v1.y);
@@ -76,54 +92,9 @@ $.getJSON(`https://api.waqi.info/map/bounds/?latlng=-85.0,-180.0,85.0,180.0&toke
         ctx.closePath();
         ctx.strokeStyle = "#ddd";
         ctx.stroke();
-        // ctx.fillStyle = "#FFCC00";
-        // ctx.fill();
-        // ctx.beginPath();
-        // ctx.arc( triangle.center.x, triangle.center.y, triangle.radius, 0, Math.PI*2, true );
-        // ctx.closePath();
-        // ctx.strokeStyle= "#ddd";
-        // ctx.stroke();
-
+    //
     });
     // let filteredData = filterTheSameCoordinates(data.data);
-
-    // filteredData.forEach((station) => {
-    //     $.getJSON(`https://api.waqi.info/feed/geo:${station.lat};${station.lon}/?token=${token}`, function (result) {
-    //         apiData.push({value: result.data.aqi, coord: [getCoordinateX(station.lon), getCoordinateY(station.lat)]});
-    //         // let rgba = aqi_gradient(result.data.aqi, 1);
-    //         // ctx.fillStyle = "rgba(" + rgba[0] + ',' + rgba[1] + ',' + rgba[2] + ',' + rgba[3] + ')';
-    //         // ctx.fillRect(getCoordinateX(station.lon), getCoordinateY(station.lat), 1, 1);
-    //         if (apiData.length == filteredData.length - 1) {
-    //             console.log("interpolate fields");
-    //             interpolate_fields(apiData, mask);
-    //             clearCanvas(canvas);
-    //             // console.log(mask.imageData);
-    //             // for (var i=0;i<mask.imageData.data.length;i+=4)
-    //             // {
-    //             //     mask.imageData.data[i]=255;
-    //             //     mask.imageData.data[i+1]=0;
-    //             //     mask.imageData.data[i+2]=0;
-    //             //     mask.imageData.data[i+3]=255;
-    //             // }
-    //             for (var i=0;i<mask.imageData.data.length;i++)
-    //             {
-    //                 if(isNaN(mask.imageData.data[i])){
-    //                     console.log(i);
-    //                 }
-    //             }
-    //             ctx.putImageData(mask.imageData, 0, 0);
-    //         }
-    //         console.log(apiData.length);
-    //     }, function (error) {
-    //         console.log(error);
-    //     });
-    //     // dataUnit[0] = 255;
-    //     // dataUnit[1] = 0;
-    //     // dataUnit[2] = 0;
-    //     // dataUnit[3] = 1;
-    //     // console.log(Math.round(getCoordinateX(station.lon)*2) + " " + Math.round(getCoordinateY(station.lat)*2));
-    //     // ctx.putImageData(unit, Math.round(getCoordinateX(station.lon)*2), Math.round(getCoordinateY(station.lat)*2));
-    // });
     console.log(data);
 });
 
@@ -196,7 +167,7 @@ function clamp(x, low, high) {
 }
 
 
-function createMask(width=view.width, height = view.height) {
+function createMask(width = view.width, height = view.height) {
 
     // Create a detached canvas, ask the model to define the mask polygon, then fill with an opaque color.
     var imageData = ctx.createImageData(width, height);
@@ -219,13 +190,13 @@ function createMask(width=view.width, height = view.height) {
 }
 
 function getView() {
-    var w = window;
-    var d = document && document.documentElement;
-    var b = document && document.getElementsByTagName("body")[0];
-    var x = w.innerWidth || d.clientWidth || b.clientWidth;
-    var y = w.innerHeight || d.clientHeight || b.clientHeight;
-    // var x = 360*2;
-    // var y = 170* 2;
+    // var w = window;
+    // var d = document && document.documentElement;
+    // var b = document && document.getElementsByTagName("body")[0];
+    // var x = w.innerWidth || d.clientWidth || b.clientWidth;
+    // var y = w.innerHeight || d.clientHeight || b.clientHeight;
+    var x = 360*2;
+    var y = 170* 2;
     return {width: x, height: y};
 }
 
@@ -317,12 +288,13 @@ function drawOverlay(canvas) {
 }
 
 aqi_gradient = segmentedColorScale([
-    [50, [0, 50, 200]],
-    [100, [150, 243, 0]],
-    [150, [255, 124, 0]],
-    [200, [174, 0, 60]],
+    [0, [0, 50, 200]],
+    [50, [150, 243, 0]],
+    [100, [255, 124, 0]],
+    [150, [174, 0, 60]],
     [300, [140, 0, 57]],
 ]);
+
 pm25_gradient = segmentedColorScale([
     [0, [0, 150, 0]],
     [30, [255, 255, 0]],
@@ -345,7 +317,7 @@ function bline(x0, y0, x1, y1) {
     var dy = Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     var err = (dx > dy ? dx : -dy) / 2;
     var result = [];
-    result.push([x0, y0])
+    result.push([x0, y0]);
     while (true) {
         if (x0 === x1 && y0 === y1) break;
         var e2 = err;
@@ -362,8 +334,8 @@ function bline(x0, y0, x1, y1) {
     }
     return result;
 }
-function sort_vertex_by_y(vertices){
-    return vertices.sort(function (a,b) {
+function sort_vertex_by_y(vertices) {
+    return vertices.sort(function (a, b) {
         if (a.y < b.y)
             return -1;
         if (a.y > b.y)
@@ -408,11 +380,15 @@ function fill_triangle(v0, v1, v2, mask, gradient) {
 }
 
 
-function rotate_180(vertices){
+function rotate_180(vertices) {
+    let new_vertices = [];
     vertices.forEach(vertex => {
-        vertex.x = view.width - vertex.x;
-        vertex.y = getView.height - vertex.y
-    })
+        let tmp = Object.assign({}, vertex);
+        tmp.x = view.width - vertex.x;
+        tmp.y = view.height - vertex.y;
+        new_vertices.push(tmp);
+    });
+    return new_vertices
 }
 function get_vertices(vertices, from, to) {
     return vertices.filter(function (item) {
@@ -421,6 +397,52 @@ function get_vertices(vertices, from, to) {
     })
 }
 
-function prepare_3d_mask(){
-    let mask = createMask();
+function get_3d_verticies(vertices) {
+    let result = [];
+    vertices.forEach(station => {
+        let tmp = Object.assign({}, station);
+        tmp.x += view.width/2;
+        tmp.y += view.height/2;
+        result.push(tmp);
+    });
+    let left_vertices = get_vertices(vertices, {x: view.width / 2, y: 0}, {x: view.width, y: view.height});
+    left_vertices.forEach(station => {
+        let tmp = Object.assign({}, station);
+        tmp.x -= view.width/2;
+        tmp.y += view.height/2;
+        result.push(tmp);
+
+    });
+    let right_vertices = get_vertices(vertices, {x: 0, y: 0}, {x: view.width / 2, y: view.height});
+    right_vertices.forEach(station => {
+        let tmp = Object.assign({}, station);
+        tmp.x += view.width * 3/2;
+        tmp.y += view.height/2;
+        result.push(tmp);
+
+    });
+
+    let up_vertices = rotate_180(vertices);
+    up_vertices = get_vertices(up_vertices, {x: 0, y: view.height / 2}, {x: view.width, y: view.height});
+    up_vertices.forEach(station => {
+        let tmp = Object.assign({}, station);
+        tmp.x += view.width/2;
+        tmp.y -= view.height/2;
+        result.push(tmp);
+    });
+    let down_vertices = rotate_180(vertices);
+    down_vertices = get_vertices(down_vertices, {x: 0, y: 0}, {x: view.width, y: view.height / 2});
+    down_vertices.forEach(station => {
+        let tmp = Object.assign({}, station);
+        tmp.x += view.width/2;
+        tmp.y += view.height * 3/2;
+        result.push(tmp);
+    });
+    return result;
+}
+
+function prepare_3d_mask() {
+    return createMask(2 * view.width, 2 * view.height);
+
+
 }
