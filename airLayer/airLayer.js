@@ -13,7 +13,6 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 var ctx = canvas.getContext("2d");
-var mask;
 
 function get_air_data(density) {
     return new Promise((resolve, reject) => {
@@ -59,7 +58,14 @@ get_air_data(2).then(data => {
         }
     });
     let expanded_vertices = get_3d_verticies(vertices);
-    let mask = prepare_expanded_filled_mask(expanded_vertices, aqi_gradient);
+    let expanded_mask = prepare_expanded_filled_mask(expanded_vertices, aqi_gradient);
+    let mask = createMask();
+    for (let i = 0; i < view.width; i++){
+        for (let j = 0; j < view.height; j++){
+            let rgba = expanded_mask.get(i + view.width/2, j + view.height/2);
+            mask.set(i,j,rgba);
+        }
+    }
     ctx.putImageData(mask.imageData, 0, 0);
     // triangles.forEach(function (triangle) {
     // // //     // ctx.fillStyle= "black";
@@ -166,18 +172,22 @@ function createMask(width = view.width, height = view.height) {
             data[i + 2] = rgba[2];
             data[i + 3] = rgba[3];
             return this;
+        },
+        get: function(x,y){
+            var i = (y * width + x) * 4;
+            return [data[i],data[i + 1],data[i + 2],data[i + 3]]
         }
     };
 }
 
 function getView() {
-    // var w = window;
-    // var d = document && document.documentElement;
-    // var b = document && document.getElementsByTagName("body")[0];
-    // var x = w.innerWidth || d.clientWidth || b.clientWidth;
-    // var y = w.innerHeight || d.clientHeight || b.clientHeight;
-    var x = 360 * 2;
-    var y = 170 * 2;
+    var w = window;
+    var d = document && document.documentElement;
+    var b = document && document.getElementsByTagName("body")[0];
+    var x = w.innerWidth || d.clientWidth || b.clientWidth;
+    var y = w.innerHeight || d.clientHeight || b.clientHeight;
+    // var x = 360 * 2;
+    // var y = 170 * 2;
     return {width: x, height: y};
 }
 
@@ -195,27 +205,6 @@ function area(x, y, z) {
     return Math.abs((x.x * y.y + y.x * z.y + z.x * x.y - y.x * x.y - z.x * y.y - x.x * z.y)) / 2
 }
 
-function findClosestTriangle(point, apiData) {
-    let result = [];
-    apiData.forEach(station => {
-        if (!(point[0] == station.coord[0] && point[1] == station.coord[1])) {
-            let distance = Math.sqrt(Math.pow(point[1] - station.coord[1], 2) + Math.pow(point[0] - station.coord[0], 2));
-            if (result.length < 3) {
-                result.push({station: station, distance: distance});
-            } else {
-                //TODO fix
-                for (let i in result) {
-                    if (result[i].distance > distance) {
-                        result[i].distance = distance;
-                        result[i].station = station;
-                        break;
-                    }
-                }
-            }
-        }
-    });
-    return result
-}
 
 function sign(p1, p2, p3) {
     return (p1[0] - p3[0]) * (p2[1] - p3[1]) - (p2[0] - p3[0]) * (p1[1] - p3[1]);
