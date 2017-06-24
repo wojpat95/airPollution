@@ -13,17 +13,6 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 var ctx = canvas.getContext("2d");
-//
-// var unit = ctx.createImageData(view.width, view.height); // only do this once per page
-// // for (var i=0;i<unit.data.length;i+=4)
-// // {
-// //     unit.data[i]=255;
-// //     unit.data[i+1]=0;
-// //     unit.data[i+2]=0;
-// //     unit.data[i+3]=255;
-// // }
-// var dataUnit = unit.data;
-// console.log(dataUnit);
 var mask;
 
 function get_air_data(density) {
@@ -36,24 +25,24 @@ function get_air_data(density) {
                 let tmp_lat = -85 + lat_unit * i;
                 let tmp_lon = -180 + lon_unit * j;
                 promises.push(
-                    new Promise((resolve,reject) => {
-                        $.getJSON(`https://api.waqi.info/map/bounds/?latlng=${-85 + lat_unit * i},${-180 + lon_unit * j},${-85 + lat_unit * (i + 1)},${-180 + lon_unit * (j + 1)}&token=${token}`,function (data) {
-                           resolve(data)
+                    new Promise((resolve, reject) => {
+                        $.getJSON(`https://api.waqi.info/map/bounds/?latlng=${-85 + lat_unit * i},${-180 + lon_unit * j},${-85 + lat_unit * (i + 1)},${-180 + lon_unit * (j + 1)}&token=${token}`, function (data) {
+                            resolve(data)
                         }, function (err) {
                             reject(err)
                         })
                     })
-                    );
+                );
             }
         }
-        Promise.all(promises).then(function(data) {
+        Promise.all(promises).then(function (data) {
             let result = [];
             data.forEach(part => {
                 result.push(...part.data)
-            })
+            });
             resolve(result);
 
-        }, function(err) {
+        }, function (err) {
             reject(err);
         });
     })
@@ -70,30 +59,22 @@ get_air_data(2).then(data => {
         }
     });
     let expanded_vertices = get_3d_verticies(vertices);
-    let mask = prepare_3d_mask();
-    let triangles = delaunay.triangulate(expanded_vertices);
-    let apiData = [];
-    //mask = createMask();
-    // console.log(data.data.length);
-    triangles.forEach(function (triangle) {
-        fill_triangle(triangle.v0, triangle.v1, triangle.v2, mask, aqi_gradient);
-
-    });
+    let mask = prepare_expanded_filled_mask(expanded_vertices, aqi_gradient);
     ctx.putImageData(mask.imageData, 0, 0);
-    triangles.forEach(function (triangle) {
-    // //     // ctx.fillStyle= "black";
-    // //     // ctx.fillRect(triangle.v0.x,triangle.v0.y,2,2);
-    // //     // ctx.fillRect(triangle.v1.x,triangle.v1.y,2,2);
-    // //     // ctx.fillRect(triangle.v2.x,triangle.v2.y,2,2);
-        ctx.beginPath();
-        ctx.moveTo(triangle.v0.x, triangle.v0.y);
-        ctx.lineTo(triangle.v1.x, triangle.v1.y);
-        ctx.lineTo(triangle.v2.x, triangle.v2.y);
-        ctx.closePath();
-        ctx.strokeStyle = "#ddd";
-        ctx.stroke();
-    //
-    });
+    // triangles.forEach(function (triangle) {
+    // // //     // ctx.fillStyle= "black";
+    // // //     // ctx.fillRect(triangle.v0.x,triangle.v0.y,2,2);
+    // // //     // ctx.fillRect(triangle.v1.x,triangle.v1.y,2,2);
+    // // //     // ctx.fillRect(triangle.v2.x,triangle.v2.y,2,2);
+    //     ctx.beginPath();
+    //     ctx.moveTo(triangle.v0.x, triangle.v0.y);
+    //     ctx.lineTo(triangle.v1.x, triangle.v1.y);
+    //     ctx.lineTo(triangle.v2.x, triangle.v2.y);
+    //     ctx.closePath();
+    //     ctx.strokeStyle = "#ddd";
+    //     ctx.stroke();
+    // //
+    // });
     // let filteredData = filterTheSameCoordinates(data.data);
     console.log(data);
 });
@@ -195,39 +176,10 @@ function getView() {
     // var b = document && document.getElementsByTagName("body")[0];
     // var x = w.innerWidth || d.clientWidth || b.clientWidth;
     // var y = w.innerHeight || d.clientHeight || b.clientHeight;
-    var x = 360*2;
-    var y = 170* 2;
+    var x = 360 * 2;
+    var y = 170 * 2;
     return {width: x, height: y};
 }
-
-
-// function interpolate_fields(apiData, mask) {
-//     for (let i = 0; i < view.width; i++) {
-//         for (let j = 0; j < view.height; j++) {
-//             let triangle = findClosestTriangle([i, j], apiData);
-//             if (triangle.length < 3) {
-//                 console.log('there is no triangle')
-//             } else {
-//                 console.log('triangle found');
-//                 if (is_point_inside_triangle([i, j], triangle[0].station.coord, triangle[1].station.coord, triangle[2].station.coord)) {
-//                     let value = interpolate_triangle([i, j], triangle[0].station, triangle[1].station, triangle[2].station);
-//                     console.log('test value: ' + value);
-//                     if (!isNaN(value)) {
-//                         mask.set(i, j, aqi_gradient(value, 255))
-//                     } else {
-//                         console.log()
-//                     }
-//                 } else {
-//                     interpolate_linear();
-//                 }
-//             }
-//         }
-//     }
-// }
-//
-// function interpolate_linear(point, x, y) {
-//
-// }
 
 function interpolate_triangle(point, x, y, z) {
     let xyzArea = area(x, y, z);
@@ -310,9 +262,8 @@ pm10_gradient = segmentedColorScale([
     [351, [214, 0, 147]],
 ]);
 
-
+// Bresenham algorithm, returning array of vertices. Every vertcies with different y coordinates
 function bline(x0, y0, x1, y1) {
-
     var dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     var dy = Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     var err = (dx > dy ? dx : -dy) / 2;
@@ -329,11 +280,11 @@ function bline(x0, y0, x1, y1) {
             err += dx;
             y0 += sy;
             result.push([x0, y0])
-
         }
     }
     return result;
 }
+
 function sort_vertex_by_y(vertices) {
     return vertices.sort(function (a, b) {
         if (a.y < b.y)
@@ -343,12 +294,13 @@ function sort_vertex_by_y(vertices) {
         return 0;
     })
 }
+
+// fills canvas between three points with given gradient, it uses Bresenham algorithm to find edges
 function fill_triangle(v0, v1, v2, mask, gradient) {
     let sorted = sort_vertex_by_y([v0, v1, v2]);
     let points1 = bline(sorted[0].x, sorted[0].y, sorted[1].x, sorted[1].y);
     let points2 = bline(sorted[0].x, sorted[0].y, sorted[2].x, sorted[2].y);
-    let range = Math.min(points1.length, points2.length);
-    let min_points = points1.length < points2.length ? points1 : points2;
+    let min_points = points1.length <= points2.length ? points1 : points2;
     let max_points = points1.length > points2.length ? points1 : points2;
     for (let i = 0; i < min_points.length; i++) {
         let min_x, max_x;
@@ -401,47 +353,50 @@ function get_3d_verticies(vertices) {
     let result = [];
     vertices.forEach(station => {
         let tmp = Object.assign({}, station);
-        tmp.x += view.width/2;
-        tmp.y += view.height/2;
+        tmp.x += view.width / 2;
+        tmp.y += view.height / 2;
         result.push(tmp);
     });
     let left_vertices = get_vertices(vertices, {x: view.width / 2, y: 0}, {x: view.width, y: view.height});
     left_vertices.forEach(station => {
         let tmp = Object.assign({}, station);
-        tmp.x -= view.width/2;
-        tmp.y += view.height/2;
+        tmp.x -= view.width / 2;
+        tmp.y += view.height / 2;
         result.push(tmp);
 
     });
     let right_vertices = get_vertices(vertices, {x: 0, y: 0}, {x: view.width / 2 - 1, y: view.height});
     right_vertices.forEach(station => {
         let tmp = Object.assign({}, station);
-        tmp.x += view.width * 3/2;
-        tmp.y += view.height/2;
+        tmp.x += view.width * 3 / 2;
+        tmp.y += view.height / 2;
         result.push(tmp);
 
     });
 
     let up_vertices = rotate_180(vertices);
-    up_vertices = get_vertices(up_vertices, {x: 0, y: view.height / 2}, {x: view.width-1, y: view.height});
+    up_vertices = get_vertices(up_vertices, {x: 0, y: view.height / 2}, {x: view.width - 1, y: view.height});
     up_vertices.forEach(station => {
-         station.x += view.width/2;
-        station.y -= view.height/2;
+        station.x += view.width / 2;
+        station.y -= view.height / 2;
         result.push(station);
     });
     let down_vertices = rotate_180(vertices);
-    down_vertices = get_vertices(down_vertices, {x: 0, y: 0}, {x: view.width-1, y: view.height / 2 - 1});
+    down_vertices = get_vertices(down_vertices, {x: 0, y: 0}, {x: view.width - 1, y: view.height / 2 - 1});
     down_vertices.forEach(station => {
         let tmp = Object.assign({}, station);
-        tmp.x += view.width/2;
-        tmp.y += view.height * 3/2;
+        tmp.x += view.width / 2;
+        tmp.y += view.height * 3 / 2;
         result.push(tmp);
     });
     return result;
 }
 
-function prepare_3d_mask() {
-    return createMask(2 * view.width, 2 * view.height);
-
-
+function prepare_expanded_filled_mask(expanded_vertices, gradient) {
+    let expanded_mask = createMask(2 * view.width, 2 * view.height);
+    let triangles = delaunay.triangulate(expanded_vertices);
+    triangles.forEach(function (triangle) {
+        fill_triangle(triangle.v0, triangle.v1, triangle.v2, expanded_mask, gradient);
+    });
+    return expanded_mask;
 }
