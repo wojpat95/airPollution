@@ -413,7 +413,7 @@ function get_3d_verticies(vertices) {
         result.push(tmp);
 
     });
-    let right_vertices = get_vertices(vertices, {x: 0, y: 0}, {x: view.width / 2, y: view.height});
+    let right_vertices = get_vertices(vertices, {x: 0, y: 0}, {x: view.width / 2 - 1, y: view.height});
     right_vertices.forEach(station => {
         let tmp = Object.assign({}, station);
         tmp.x += view.width * 3/2;
@@ -423,15 +423,14 @@ function get_3d_verticies(vertices) {
     });
 
     let up_vertices = rotate_180(vertices);
-    up_vertices = get_vertices(up_vertices, {x: 0, y: view.height / 2}, {x: view.width, y: view.height});
+    up_vertices = get_vertices(up_vertices, {x: 0, y: view.height / 2}, {x: view.width-1, y: view.height});
     up_vertices.forEach(station => {
-        let tmp = Object.assign({}, station);
-        tmp.x += view.width/2;
-        tmp.y -= view.height/2;
-        result.push(tmp);
+         station.x += view.width/2;
+        station.y -= view.height/2;
+        result.push(station);
     });
     let down_vertices = rotate_180(vertices);
-    down_vertices = get_vertices(down_vertices, {x: 0, y: 0}, {x: view.width, y: view.height / 2});
+    down_vertices = get_vertices(down_vertices, {x: 0, y: 0}, {x: view.width-1, y: view.height / 2 - 1});
     down_vertices.forEach(station => {
         let tmp = Object.assign({}, station);
         tmp.x += view.width/2;
