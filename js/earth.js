@@ -5,6 +5,7 @@ var container,
     radious = 1600, theta = 45, onMouseDownTheta = 45, phi = 60, onMouseDownPhi = 60,
     layerMesh;
 
+var datGui = new dat.GUI();
 var isMouseDown = false, onMouseDownPosition, theta = 45, onMouseDownTheta = 45, phi = 60, onMouseDownPhi = 60;
 
 // default layer that will be shown
@@ -12,6 +13,35 @@ var index_parameter = 'aqi';
 
 // data to remember in local storage. variable used in function showLayer to show layer on view
 var stations;
+
+var today = new Date();
+var dd = today.getDate();
+var mm = today.getMonth()+1;
+var yyyy = today.getFullYear();
+
+if(dd<10) {
+    dd = '0'+dd
+}
+
+if(mm<10) {
+    mm = '0'+mm
+}
+
+// today = mm + '/' + dd + '/' + yyyy;
+today = today.toISOString();
+
+let index_table = {};
+let max = 0;
+for(let key in localStorage){
+    index_table[JSON.parse(localStorage.getItem(key)).date] = key;
+    if (!max){
+        max = key;
+    }else if (max < key){
+        max = key;
+    }
+}
+max ++;
+index_table[today] = max;
 
 
 // MAIN
@@ -26,8 +56,8 @@ function init() {
 
     // Container
 
-    container = document.createElement( 'div' );
-    document.body.appendChild( container );
+    container = document.createElement('div');
+    document.body.appendChild(container);
 
     // Scene
 
@@ -35,19 +65,19 @@ function init() {
 
     // Camera
 
-    camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+    camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 10000);
     scene.add(camera);
 
-    camera.position.x = radious * Math.sin( theta * Math.PI / 360 ) * Math.cos( phi * Math.PI / 360 );
-    camera.position.y = radious * Math.sin( phi * Math.PI / 360 );
-    camera.position.z = radious * Math.cos( theta * Math.PI / 360 ) * Math.cos( phi * Math.PI / 360 );
-    camera.lookAt( scene.position );
+    camera.position.x = radious * Math.sin(theta * Math.PI / 360) * Math.cos(phi * Math.PI / 360);
+    camera.position.y = radious * Math.sin(phi * Math.PI / 360);
+    camera.position.z = radious * Math.cos(theta * Math.PI / 360) * Math.cos(phi * Math.PI / 360);
+    camera.lookAt(scene.position);
 
     // Grid
 
     var earthGeo = new THREE.SphereGeometry(100, 100, 100, 0, Math.PI * 2, 0, Math.PI),
-        earthMat = new THREE.MeshBasicMaterial( {color: 0x808080} );
-        // earthMat = new THREE.MeshNormalMaterial();
+        earthMat = new THREE.MeshBasicMaterial({color: 0x808080});
+    // earthMat = new THREE.MeshNormalMaterial();
 
     var earthMesh = new THREE.Mesh(earthGeo, earthMat);
     scene.add(earthMesh);
@@ -55,16 +85,15 @@ function init() {
     // GUI Controller
 
     var props = {
-        index: index_parameter
+        index: index_parameter,
+        date: max
     };
-    var datGui = new dat.GUI();
 
-    datGui.add(props,'index',
-        ['aqi','pm10','pm25','co','so2', 'no2', 'o3'])
-        .name('Index').listen().onChange(function(newValue){
-        console.log(newValue);
+    datGui.add(props, 'index',
+        ['aqi', 'pm10', 'pm25', 'co', 'so2', 'no2', 'o3'])
+        .name('Index').listen().onChange(function (newValue) {
         index_parameter = newValue;
-        if (stations){
+        if (stations) {
             console.log('stations');
             showLayer(stations, index_parameter, earthMesh)
         }
@@ -74,38 +103,53 @@ function init() {
 
     // Earth map texture
 
-    var geometry   = new THREE.SphereGeometry(100.01, 100, 100, 0, Math.PI * 2, 0, Math.PI);
-    var material  = new THREE.MeshBasicMaterial({
-        map     : new THREE.ImageUtils.loadTexture('asserts/img/earth.png'),
-        side        : THREE.DoubleSide,
-        transparent : true,
-        depthWrite  : false,
+    var geometry = new THREE.SphereGeometry(100.01, 100, 100, 0, Math.PI * 2, 0, Math.PI);
+    var material = new THREE.MeshBasicMaterial({
+        map: new THREE.ImageUtils.loadTexture('asserts/img/earth.png'),
+        side: THREE.DoubleSide,
+        transparent: true,
+        depthWrite: false,
     });
     var cloudMesh = new THREE.Mesh(geometry, material);
     earthMesh.add(cloudMesh);
+        layers.stations().then((values) => {
+                stations = values;
+                localStorage.setItem(max, JSON.stringify({stations:stations, date: today}));
 
-    layers.stations().then((values) => {
-        stations = values;
-        
-        let layer = layers.layer(stations, index_parameter);
+                let layer = layers.layer(stations, index_parameter);
 
-        layers.canvas.getContext("2d").putImageData(layer.imageData, 0, 0);
+                layers.canvas.getContext("2d").putImageData(layer.imageData, 0, 0);
 
-        let texture  = new THREE.Texture(layers.canvas);
-        texture.needsUpdate = true;
+                let texture = new THREE.Texture(layers.canvas);
+                texture.needsUpdate = true;
 
-        var geometry   = new THREE.SphereGeometry(101, 100, 100, 0, Math.PI * 2, 0, Math.PI);
-        let material  = new THREE.MeshBasicMaterial({
-            map         : texture,
-            side        : THREE.DoubleSide,
-            opacity     : 0.8,
-            transparent : true,
-            depthWrite  : false,
-        });
-        layerMesh = new THREE.Mesh(geometry, material);
-        earthMesh.add(layerMesh);
+                var geometry = new THREE.SphereGeometry(101, 100, 100, 0, Math.PI * 2, 0, Math.PI);
+                let material = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    side: THREE.DoubleSide,
+                    opacity: 0.8,
+                    transparent: true,
+                    depthWrite: false,
+                });
+                layerMesh = new THREE.Mesh(geometry, material);
+                earthMesh.add(layerMesh);
+
+                datGui.add(props, 'date',index_table)
+                    .name('Date').listen().onChange(function (newValue) {
+                    if (stations) {
+
+                        if (localStorage.getItem(newValue) != null) {
+                            stations = JSON.parse(localStorage.getItem(newValue)).stations;
+                            showLayer(stations, index_parameter, earthMesh)
+
+                        }
+                    }
+
+                });
+
         }
-    );
+        );
+
 
 
     // Axis helper
@@ -139,7 +183,7 @@ function init() {
     renderer = new THREE.WebGLRenderer({
         antialias: true
     });
-    renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
     container.appendChild(renderer.domElement);
 
@@ -147,12 +191,12 @@ function init() {
 
     onMouseDownPosition = new THREE.Vector2();
 
-    window.addEventListener( 'resize', onWindowResize, false );
+    window.addEventListener('resize', onWindowResize, false);
 
-    document.addEventListener( 'mousedown', onDocumentMouseDown, false );
-    document.addEventListener( 'mousemove', onDocumentMouseMove, false );
-    document.addEventListener( 'mouseup', onDocumentMouseUp, false );
-    document.addEventListener( 'mousewheel', onDocumentMouseWheel, false );
+    document.addEventListener('mousedown', onDocumentMouseDown, false);
+    document.addEventListener('mousemove', onDocumentMouseMove, false);
+    document.addEventListener('mouseup', onDocumentMouseUp, false);
+    document.addEventListener('mousewheel', onDocumentMouseWheel, false);
 
 }
 
@@ -161,25 +205,25 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
 
-    renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
 }
 
 function render() {
 
-    renderer.render( scene, camera );
+    renderer.render(scene, camera);
 
 }
 
 function animate() {
 
-    window.requestAnimationFrame( animate );
+    window.requestAnimationFrame(animate);
 
     render();
 
 }
 
-function onDocumentMouseDown( event ) {
+function onDocumentMouseDown(event) {
 
     // event.preventDefault();
 
@@ -192,28 +236,28 @@ function onDocumentMouseDown( event ) {
 
 }
 
-function onDocumentMouseMove( event ) {
+function onDocumentMouseMove(event) {
 
     event.preventDefault();
 
-    if ( isMouseDown ) {
+    if (isMouseDown) {
 
-        theta = - ( ( event.clientX - onMouseDownPosition.x ) * 0.5 ) + onMouseDownTheta;
+        theta = -( ( event.clientX - onMouseDownPosition.x ) * 0.5 ) + onMouseDownTheta;
         phi = ( ( event.clientY - onMouseDownPosition.y ) * 0.5 ) + onMouseDownPhi;
 
-        phi = Math.min( 180, Math.max( -180, phi) );
+        phi = Math.min(180, Math.max(-180, phi));
 
-        camera.position.x = radious * Math.sin( theta * Math.PI / 360 ) * Math.cos( phi * Math.PI / 360 );
-        camera.position.y = radious * Math.sin( phi * Math.PI / 360 );
-        camera.position.z = radious * Math.cos( theta * Math.PI / 360 ) * Math.cos( phi * Math.PI / 360 );
+        camera.position.x = radious * Math.sin(theta * Math.PI / 360) * Math.cos(phi * Math.PI / 360);
+        camera.position.y = radious * Math.sin(phi * Math.PI / 360);
+        camera.position.z = radious * Math.cos(theta * Math.PI / 360) * Math.cos(phi * Math.PI / 360);
         camera.updateMatrix();
-        camera.lookAt( scene.position );
+        camera.lookAt(scene.position);
 
     }
 
 }
 
-function onDocumentMouseUp( event ) {
+function onDocumentMouseUp(event) {
 
     // event.preventDefault();
 
@@ -224,35 +268,35 @@ function onDocumentMouseUp( event ) {
 
 }
 
-function onDocumentMouseWheel( event ) {
+function onDocumentMouseWheel(event) {
 
     radious -= event.wheelDeltaY;
 
-    camera.position.x = radious * Math.sin( theta * Math.PI / 360 ) * Math.cos( phi * Math.PI / 360 );
-    camera.position.y = radious * Math.sin( phi * Math.PI / 360 );
-    camera.position.z = radious * Math.cos( theta * Math.PI / 360 ) * Math.cos( phi * Math.PI / 360 );
+    camera.position.x = radious * Math.sin(theta * Math.PI / 360) * Math.cos(phi * Math.PI / 360);
+    camera.position.y = radious * Math.sin(phi * Math.PI / 360);
+    camera.position.z = radious * Math.cos(theta * Math.PI / 360) * Math.cos(phi * Math.PI / 360);
     camera.updateMatrix();
 
     render();
 
 }
 
-function showLayer(stations, index){
+function showLayer(stations, index) {
     layers.clearCanvas();
     let layer = layers.layer(stations, index);
 
     layers.canvas.getContext("2d").putImageData(layer.imageData, 0, 0);
 
-    let texture  = new THREE.Texture(layers.canvas);
+    let texture = new THREE.Texture(layers.canvas);
     texture.needsUpdate = true;
 
-    var geometry   = new THREE.SphereGeometry(101, 100, 100, 0, Math.PI * 2, 0, Math.PI);
-    let material  = new THREE.MeshBasicMaterial({
-        map         : texture,
-        side        : THREE.DoubleSide,
-        opacity     : 0.8,
-        transparent : true,
-        depthWrite  : false,
+    var geometry = new THREE.SphereGeometry(101, 100, 100, 0, Math.PI * 2, 0, Math.PI);
+    let material = new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.DoubleSide,
+        opacity: 0.8,
+        transparent: true,
+        depthWrite: false,
     });
     let tmp = new THREE.Mesh(geometry, material);
     layerMesh.material.map = tmp.material.map;

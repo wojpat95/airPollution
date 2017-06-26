@@ -90,7 +90,7 @@ var layers = function (global) {
 
     function stations() {
         return new Promise((resolve, reject) => {
-            get_air_data(1).then(data => {
+            get_air_data(3  ).then(data => {
                 let vertices = [];
                 let filteredGeoData = filterTheSameGeoCoordinates(data);
                 resolve(
@@ -259,11 +259,53 @@ var layers = function (global) {
     }
 
     function interpolate_triangle(point, x, y, z) {
+        let threshold = 3;
+        let divide_reduce_factor = 0.1;
+        let substract_reduce_factor = 2;
         let xyzArea = area(x, y, z);
         let pxyArea = area(point, x, y);
         let pyzArea = area(point, y, z);
         let pxzArea = area(point, x, z);
-        return (pxyArea * z.value + pyzArea * x.value + pxzArea * y.value) / xyzArea;
+        let z_distance = Math.sqrt(Math.pow(point.y - z.y, 2) + Math.pow(point.x - z.x, 2));
+        let x_distance = Math.sqrt(Math.pow(point.y - x.y, 2) + Math.pow(point.x - x.x, 2));
+        let y_distance = Math.sqrt(Math.pow(point.y - y.y, 2) + Math.pow(point.x - y.x, 2));
+        let z_value = z.value;
+        if (z_distance > threshold){
+            // if(z_value * z_distance > 1){
+            //     z_value /= z_distance*divide_reduce_factor;
+            // }else{
+            // }
+            z_value -= z_distance*substract_reduce_factor;
+            if (z_value < 0){
+                z_value = 0;
+            }
+        }
+        let y_value = y.value;
+
+        if (y_distance > threshold){
+            // if(y_value * y_distance > 1){
+            //     y_value /= y_distance*divide_reduce_factor;
+            // }
+            // else{
+            // }
+            y_value -= y_distance*substract_reduce_factor;
+            if (y_value < 0){
+                y_value = 0;
+            }
+        }
+        let x_value = x.value;
+
+        if (x_distance > threshold){
+            // if(x_value * x_distance > 1){
+            //     x_value /= x_distance*divide_reduce_factor;
+            // }else{
+            // }
+            x_value -= x_distance*substract_reduce_factor;
+            if (x_value < 0){
+                x_value = 0;
+            }
+        }
+        return (pxyArea * z_value + pyzArea * x_value + pxzArea * y_value) / xyzArea;
 
     }
 
