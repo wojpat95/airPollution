@@ -60,7 +60,7 @@ function init() {
     var datGui = new dat.GUI();
 
     datGui.add(props,'index',
-        ['aqi','p10','p25','co','so2', 'no2', 'o3'])
+        ['aqi','pm10','pm25','co','so2', 'no2', 'o3'])
         .name('Index').listen().onChange(function(newValue){
         console.log(newValue);
         index_parameter = newValue;
@@ -86,7 +86,24 @@ function init() {
 
     layers.stations().then((values) => {
         stations = values;
-        showLayer(values, index_parameter, earthMesh);
+        
+        let layer = layers.layer(stations, index_parameter);
+
+        layers.canvas.getContext("2d").putImageData(layer.imageData, 0, 0);
+
+        let texture  = new THREE.Texture(layers.canvas);
+        texture.needsUpdate = true;
+
+        var geometry   = new THREE.SphereGeometry(101, 100, 100, 0, Math.PI * 2, 0, Math.PI);
+        let material  = new THREE.MeshBasicMaterial({
+            map         : texture,
+            side        : THREE.DoubleSide,
+            opacity     : 0.8,
+            transparent : true,
+            depthWrite  : false,
+        });
+        layerMesh = new THREE.Mesh(geometry, material);
+        earthMesh.add(layerMesh);
         }
     );
 
@@ -220,10 +237,8 @@ function onDocumentMouseWheel( event ) {
 
 }
 
-function showLayer(stations, index, earthMesh){
+function showLayer(stations, index){
     layers.clearCanvas();
-    earthMesh.remove(layerMesh);
-
     let layer = layers.layer(stations, index);
 
     layers.canvas.getContext("2d").putImageData(layer.imageData, 0, 0);
@@ -239,6 +254,6 @@ function showLayer(stations, index, earthMesh){
         transparent : true,
         depthWrite  : false,
     });
-    layerMesh = new THREE.Mesh(geometry, material);
-    earthMesh.add(layerMesh);
+    let tmp = new THREE.Mesh(geometry, material);
+    layerMesh.material.map = tmp.material.map;
 }

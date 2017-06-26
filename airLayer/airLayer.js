@@ -60,21 +60,20 @@ var layers = function (global) {
                     let result = [];
                     details.forEach(detail => {
                         if (detail.data.city && detail.data.city.geo && detail.data.iaqi) {
-                            result.push(
-                                {
-                                    lat: detail.data.city.geo[0],
-                                    lon: detail.data.city.geo[1],
-                                    iaqi: {
-                                        aqi: detail.data.aqi,
-                                        pm10: detail.data.iaqi.pm10,
-                                        pm25: detail.data.iaqi.pm25,
-                                        co: detail.data.iaqi.co,
-                                        no2: detail.data.iaqi.no2,
-                                        so2: detail.data.iaqi.so2,
-                                        o3: detail.data.iaqi.o3,
+                            let object = {};
+                            object.lat = detail.data.city.geo[0];
+                            object.lon = detail.data.city.geo[1];
+                            object.iaqi = {};
+                            object.iaqi.aqi = detail.data.aqi;
+                            object.iaqi.pm10 = detail.data.iaqi.pm10 ? detail.data.iaqi.pm10.v : undefined;
+                            object.iaqi.pm25 = detail.data.iaqi.pm25 ? detail.data.iaqi.pm25.v : undefined;
+                            object.iaqi.co = detail.data.iaqi.co ? detail.data.iaqi.co.v : undefined;
+                            object.iaqi.no2 = detail.data.iaqi.no2 ? detail.data.iaqi.no2.v : undefined;
+                            object.iaqi.so2 = detail.data.iaqi.so2 ? detail.data.iaqi.so2.v : undefined;
+                            object.iaqi.o3 = detail.data.iaqi.o3 ? detail.data.iaqi.o3.v : undefined;
 
-                                    }
-                                }
+                            result.push(
+                               object
                             )
                         }
                     });
